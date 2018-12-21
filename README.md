@@ -13,6 +13,8 @@ Small service that puts transactions into a in-memory database and provides the 
 
 - For Spec#2 I thought ConcurrentSkipListMap would be enough but found out its get method's runtime complexity is rather O(log(n)), so that's excluded.
 - Since syncrhonized HashMap locks at object level, I chose for the ConcurrentHashMap implementation that uses lock stripping mechanism and its get/put runtime complexity is also O(1), given its hashcode is correct.
+- ConcurrentHashMap solves the thread-safe caching for a single instance of the application, but doesn't work properly in multiple-instances as the in-memory cache will be different among instances.
+ But since the database is also in-memory anyways, multiple-instance doesn't seem to be the scope of this exercise. Therefore, only single instance approach will be considered. 
 
 ## Database
 

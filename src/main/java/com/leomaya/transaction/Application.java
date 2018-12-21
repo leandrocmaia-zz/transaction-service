@@ -1,13 +1,13 @@
-package com.leomaya.transactionservice;
+package com.leomaya.transaction;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class TransactionServiceApplication {
+public class Application {
 
 	public static void main(String[] args) {
-		SpringApplication.run(TransactionServiceApplication.class, args);
+		SpringApplication.run(Application.class, args);
 	}
 
 }
