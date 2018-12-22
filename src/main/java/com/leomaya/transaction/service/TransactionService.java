@@ -6,4 +6,5 @@ import com.leomaya.transaction.model.Transaction;
 public interface TransactionService {
     Transaction create(Transaction transaction);
     Statistics getStatistics();
+    void evictCache();
 }
