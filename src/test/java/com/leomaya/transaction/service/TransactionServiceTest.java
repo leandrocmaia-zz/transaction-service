@@ -11,17 +11,18 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.number.OrderingComparison.greaterThan;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
+import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
@@ -45,7 +46,7 @@ public class TransactionServiceTest {
     public void should_create_transaction() {
         when(transactionRepository.save(any())).thenReturn(any());
 
-        Transaction transaction = createTransactionWithAmountAndTimestamp(1l,100.0, new Date().getTime());
+        Transaction transaction = createTransactionWithAmountAndTimestamp(1l,100.0, Instant.now().toEpochMilli());
         assertNotNull(transaction);
     }
 
@@ -55,10 +56,10 @@ public class TransactionServiceTest {
         when(transactionRepository.save(any())).thenReturn(Transaction.builder().build());
 
         // first batch of transactions with timestamp 59s ago
-        createTransactionWithAmountAndTimestamp(1l,100.0, new Date().getTime() - (59 * 1000));
-        createTransactionWithAmountAndTimestamp(2l, 200.00, new Date().getTime() - (59 * 1000));
+        createTransactionWithAmountAndTimestamp(1l,100.0, Instant.now().minusSeconds(59).toEpochMilli());
+        createTransactionWithAmountAndTimestamp(2l, 200.00, Instant.now().minusSeconds(59).toEpochMilli());
 
-        Statistics should = Statistics.builder()
+        Statistics should0 = Statistics.builder()
             .avg(150.0)
             .min(100.0)
             .max(200.0)
@@ -66,21 +67,29 @@ public class TransactionServiceTest {
             .count(2l)
             .build();
 
-        Statistics response = transactionService.getStatistics();
+        Statistics after0eviction = transactionService.getStatistics();
 
-        assertStats(response, should);
+        assertStats(after0eviction, should0);
 
         // emulate @Scheduled
         Thread.sleep(1000);
         transactionService.evictCache();
 
+        Statistics should1 = Statistics.builder()
+            .avg(0.0)
+            .min(0.0)
+            .max(0.0)
+            .sum(0.0)
+            .count(0l)
+            .build();
+
         Statistics after1eviction = transactionService.getStatistics();
-        assertEquals(after1eviction.getCount(), new Long(0l));
+        assertStats(after1eviction, should1);
 
         // second batch with timestamp current (the first batch should be already evicted)
 
-        createTransactionWithAmountAndTimestamp(3l,500.0, new Date().getTime());
-        createTransactionWithAmountAndTimestamp(4l, 1000.0, new Date().getTime());
+        createTransactionWithAmountAndTimestamp(3l,500.0, Instant.now().toEpochMilli());
+        createTransactionWithAmountAndTimestamp(4l, 1000.0, Instant.now().toEpochMilli());
 
         Statistics after2eviction = transactionService.getStatistics();
 
@@ -99,8 +108,8 @@ public class TransactionServiceTest {
 
         // third batch with timestamp of 59s ago (the first batch should be out but not the second)
 
-        createTransactionWithAmountAndTimestamp(5l,1.99, new Date().getTime() - (59 * 1000));
-        createTransactionWithAmountAndTimestamp(6l, 2000.0, new Date().getTime() - (59 * 1000));
+        createTransactionWithAmountAndTimestamp(5l,1.99, Instant.now().minusSeconds(59).toEpochMilli());
+        createTransactionWithAmountAndTimestamp(6l, 2000.0, Instant.now().minusSeconds(59).toEpochMilli());
 
         Statistics after3eviction = transactionService.getStatistics();
 
@@ -157,7 +166,7 @@ public class TransactionServiceTest {
                     overlaps.incrementAndGet();
                 }
                 running.set(true);
-                Transaction transaction = createTransactionWithAmountAndTimestamp(new Random().nextLong(), 100.0, new Date().getTime() - (59 * 1000));
+                Transaction transaction = createTransactionWithAmountAndTimestamp(new Random().nextLong(), 100.0, Instant.now().minusSeconds(59).toEpochMilli());
                 Statistics statistics = transactionService.getStatistics();
                 running.set(false);
                 return new Pair(transaction, statistics);

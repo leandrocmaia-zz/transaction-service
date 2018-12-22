@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.DoubleSummaryStatistics;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +21,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     private TransactionRepository transactionRepository;
     private Map<Long, Transaction> cache;
-    private  final int TRANSACTION_CACHE_MILLISECONDS = 60 * 1000; // 60s
+    private  final int TRANSACTION_CACHE_SECONDS = 60;
 
     public TransactionServiceImpl(TransactionRepository transactionRepository) {
         this.transactionRepository = transactionRepository;
@@ -35,12 +35,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public Transaction create(Transaction transaction) {
         transactionRepository.save(transaction);
-        Long transactionTimestamp = transaction.getTimestamp();
-        long currentTimestamp = new Date().getTime();
-        long minuteAgoTimestamp = currentTimestamp - (TRANSACTION_CACHE_MILLISECONDS);
-        if (transactionTimestamp <= currentTimestamp && transactionTimestamp >= minuteAgoTimestamp) {
-            cache.putIfAbsent(transaction.getId(), transaction);
-        }
+        putIfCacheable(transaction);
         return transaction;
     }
 
@@ -51,19 +46,28 @@ public class TransactionServiceImpl implements TransactionService {
             .builder()
             .sum(stat.getSum())
             .avg(stat.getAverage())
-            .max(stat.getMax())
-            .min(stat.getMin())
+            .max(Double.isInfinite(stat.getMax()) ? 0.0 : stat.getMax()) // divided by 0 case
+            .min(Double.isInfinite(stat.getMin()) ? 0.0 : stat.getMin())
             .count(stat.getCount())
             .build();
     }
 
     private Map<Long, Transaction> getLastMinuteTransactions() {
-        long currentTimestamp = new Date().getTime();
-        long minuteAgoTimestamp = currentTimestamp - (TRANSACTION_CACHE_MILLISECONDS);
+        long currentTimestamp = Instant.now().toEpochMilli();
+        long minuteAgoTimestamp = Instant.now().toEpochMilli() - (TRANSACTION_CACHE_SECONDS * 1000);
         List<Transaction> transactions = transactionRepository.findAllByTimestampBetween(currentTimestamp, minuteAgoTimestamp);
         return transactions.stream().collect(Collectors.toConcurrentMap(Transaction::getId, Function.identity()));
     }
 
+    private void putIfCacheable(Transaction transaction) {
+        long transactionTimestamp = transaction.getTimestamp();
+        long currentTimestamp = Instant.now().toEpochMilli();
+        long minuteAgoTimestamp = currentTimestamp - (TRANSACTION_CACHE_SECONDS * 1000);
+        if (transactionTimestamp >= minuteAgoTimestamp && transactionTimestamp <= currentTimestamp) {
+            cache.putIfAbsent(transaction.getId(), transaction);
+        }
+
+    }
     /**
      * evict cache of transactions older than 60s to make getLastMinuteTransactions O(1)
      */
@@ -71,7 +75,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Scheduled(fixedDelay = 1 * 1000)
     public void evictCache() {
         log.info("Evicting cache...");
-        cache.entrySet().removeIf(entry -> entry.getValue().getTimestamp() < new Date().getTime() - (TRANSACTION_CACHE_MILLISECONDS));
+        cache.entrySet().removeIf(entry -> entry.getValue().getTimestamp() < Instant.now().minusSeconds(TRANSACTION_CACHE_SECONDS).toEpochMilli());
     }
 
 }
