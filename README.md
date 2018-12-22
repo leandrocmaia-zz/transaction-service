@@ -5,7 +5,7 @@ Small service that puts transactions into a in-memory database and provides the 
 ## Specs
 
 1. 2 endpoints: `POST /transaction | body: amount: Double, timestamp: Timestamp) | response 201/204` and `GET /statitics`
-2. `GET /statistics` should retrieve last 60 seconds with a runtime complexity of _O(1)_ .
+2. `GET /statistics` should retrieve last 60 seconds transactions with a runtime complexity of _O(1)_ .
 3. Both endpoints should be _thread-safe_.
 4. Possible to post older transactions.
 
