@@ -40,3 +40,29 @@ Small service that puts transactions into a in-memory database and provides the 
 ## Testing
 
 - ./gradlew test
+
+## Api
+
+To post a transaction:
+
+Retrieve the current epoch timestamp:
+
+```
+date +%s
+```
+
+Replace the timestamp with above output:
+
+```
+curl -X POST "http://localhost:8080/transaction" -H "accept: */*" -H "Content-Type: application/json" -d "{ \"amount\": 100.0, \"timestamp\": 1545912465}"
+```
+
+Then retrieve the last transactions:
+
+```
+curl -X GET "http://localhost:8080/statistics"
+```
+
+Or simply use the swagger ui:
+
+`http://localhost:8080/swagger-ui.html#/transaction-controller`

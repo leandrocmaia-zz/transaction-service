@@ -74,7 +74,6 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Scheduled(fixedDelay = 1 * 1000)
     public void evictCache() {
-        log.info("Evicting cache...");
         cache.entrySet().removeIf(entry -> entry.getValue().getTimestamp() < Instant.now().minusSeconds(TRANSACTION_CACHE_SECONDS).toEpochMilli());
     }
 
