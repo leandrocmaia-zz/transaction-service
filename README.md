@@ -54,7 +54,7 @@ date +%s
 Replace the timestamp with above output:
 
 ```
-curl -X POST "http://localhost:8080/transaction" -H "accept: */*" -H "Content-Type: application/json" -d "{ \"amount\": 100.0, \"timestamp\": 1545912465}"
+curl -X POST "http://localhost:8080/transaction" -H "Content-Type: application/json" -d "{ \"amount\": 100.0, \"timestamp\": 1545912465}"
 ```
 
 Then retrieve the last transactions:
